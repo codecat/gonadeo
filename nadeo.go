@@ -21,6 +21,8 @@ type Nadeo interface {
 
 	Get(url string, useCache bool) (string, error)
 	Post(url, data string) (string, error)
+
+	CheckRefresh() error
 }
 
 type nadeo struct {
@@ -159,6 +161,17 @@ func (n *nadeo) Post(url, data string) (string, error) {
 	return n.request("POST", url, false, data)
 }
 
+func (n *nadeo) CheckRefresh() error {
+	now := uint32(time.Now().Unix())
+	if now > n.tokenRefreshTime {
+		err := n.refreshNow()
+		if err != nil {
+			return fmt.Errorf("unable to refresh token: %s", err.Error())
+		}
+	}
+	return nil
+}
+
 func (n *nadeo) request(method string, url string, useCache bool, data string) (string, error) {
 	if useCache {
 		cachedResponse, cacheFound := n.requestCache.Get(url)
@@ -167,7 +180,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 		}
 	}
 
-	err := n.checkRefresh()
+	err := n.CheckRefresh()
 	if err != nil {
 		return "", err
 	}
@@ -244,17 +257,6 @@ func (n *nadeo) refreshNow() error {
 	n.tokenRefreshTime = tokenInfo.Payload.Rat
 	n.tokenExpirationTime = tokenInfo.Payload.Exp
 
-	return nil
-}
-
-func (n *nadeo) checkRefresh() error {
-	now := uint32(time.Now().Unix())
-	if now > n.tokenRefreshTime {
-		err := n.refreshNow()
-		if err != nil {
-			return fmt.Errorf("unable to refresh token: %s", err.Error())
-		}
-	}
 	return nil
 }
 
