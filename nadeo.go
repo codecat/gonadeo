@@ -59,7 +59,9 @@ func (n *nadeo) AuthenticateUbi(email, password string) error {
 	io.ReadFull(resp.Body, resBytes)
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("error from server: %s", string(resBytes))
+		respError := ubiErrorResponse{}
+		json.Unmarshal(resBytes, &respError)
+		return fmt.Errorf("error from server: %s", respError.Message)
 	}
 
 	res := ubiAuthResponse{}
@@ -89,9 +91,7 @@ func (n *nadeo) AuthenticateUbiTicket(ticket string) error {
 	io.ReadFull(resp.Body, resBytes)
 
 	if resp.StatusCode != 200 {
-		respError := errorResponse{}
-		json.Unmarshal(resBytes, &respError)
-		return fmt.Errorf("error %d from server: %s", respError.Code, respError.Message)
+		return fmt.Errorf("error from server: %s", getError(resBytes))
 	}
 
 	res := authResponse{}
@@ -128,12 +128,10 @@ func (n *nadeo) Authenticate(username, password string) error {
 	io.ReadFull(resp.Body, resBytes)
 
 	if resp.StatusCode != 200 {
-		respError := errorResponse{}
-		json.Unmarshal(resBytes, &respError)
 		// 401: "Username could not be found."  -> Invalid username
 		// 401: "Invalid credentials."          -> Invalid password
 		//   0: "There was a validation error." -> Invalid audience
-		return fmt.Errorf("error %d from server: %s", respError.Code, respError.Message)
+		return fmt.Errorf("error from server: %s", getError(resBytes))
 	}
 
 	res := authResponse{}
@@ -211,10 +209,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 	}
 
 	if resp.StatusCode != 200 {
-		//respError := errorResponse{}
-		//err := json.Unmarshal(resBytes, &respError)
-		return "", fmt.Errorf("error from server: %s", string(resBytes))
-		//return "", fmt.Errorf("error %d from server: %s", respError.Code, respError.Message)
+		return "", fmt.Errorf("error from server: %s", getError(resBytes))
 	}
 
 	if useCache {
@@ -242,9 +237,7 @@ func (n *nadeo) refreshNow() error {
 	io.ReadFull(resp.Body, resBytes)
 
 	if resp.StatusCode != 200 {
-		respError := errorResponse{}
-		json.Unmarshal(resBytes, &respError)
-		return fmt.Errorf("error %d from server: %s", respError.Code, respError.Message)
+		return fmt.Errorf("error from server: %s", getError(resBytes))
 	}
 
 	res := authResponse{}

@@ -24,6 +24,21 @@ type authResponse struct {
 }
 
 type errorResponse struct {
-	Message string
-	Code    int
+	Error   string // NLS
+	Message string // NLS & Core
+	Code    int    // Core
+
+	TraceID       string // NLS
+	CorrelationID string `json:"correlation_id"` // Core
+}
+
+type ubiErrorResponse struct {
+	Message         string
+	ErrorCode       int
+	HTTPCode        int
+	ErrorContext    string
+	MoreInfo        string
+	TransactionTime string
+	TransactionID   string
+	Environment     string
 }
