@@ -8,7 +8,7 @@ func getError(res []byte) string {
 	respError := errorResponse{}
 	err := json.Unmarshal(res, &respError)
 	if err != nil {
-		return err.Error()
+		return string(res) + " (" + err.Error() + ")"
 	}
 	if respError.Error != "" {
 		return respError.Message + " (" + respError.Error + ")"
