@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/codecat/go-libs/log"
 	"github.com/patrickmn/go-cache"
 )
 
@@ -23,6 +24,8 @@ type Nadeo interface {
 	Post(url, data string) (string, error)
 
 	CheckRefresh() error
+
+	SetLogging(enabled bool)
 }
 
 type nadeo struct {
@@ -35,6 +38,8 @@ type nadeo struct {
 	tokenExpirationTime uint32
 
 	requestCache *cache.Cache
+
+	logRequests bool
 }
 
 func (n *nadeo) AuthenticateUbi(email, password string) error {
@@ -170,12 +175,20 @@ func (n *nadeo) CheckRefresh() error {
 	return nil
 }
 
+func (n *nadeo) SetLogging(enabled bool) {
+	n.logRequests = enabled
+}
+
 func (n *nadeo) request(method string, url string, useCache bool, data string) (string, error) {
 	if useCache {
 		cachedResponse, cacheFound := n.requestCache.Get(url)
 		if cacheFound {
 			return cachedResponse.(string), nil
 		}
+	}
+
+	if n.logRequests {
+		log.Trace("Nadeo request: %s => %s", method, url)
 	}
 
 	err := n.CheckRefresh()
