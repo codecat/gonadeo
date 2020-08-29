@@ -38,34 +38,9 @@ type nadeo struct {
 }
 
 func (n *nadeo) AuthenticateUbi(email, password string) error {
-	body := bytes.NewReader([]byte("{}"))
-
-	req, err := http.NewRequest("POST", "https://public-ubiservices.ubi.com/v3/profiles/sessions", body)
-	if err != nil {
-		return fmt.Errorf("unable to make request: %s", err.Error())
-	}
-
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Ubi-AppId", "86263886-327a-4328-ac69-527f0d20a237")
-	req.SetBasicAuth(email, password)
-
-	client := http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("unable to perform request: %s", err.Error())
-	}
-
-	resBytes := make([]byte, resp.ContentLength)
-	io.ReadFull(resp.Body, resBytes)
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("error from server: %s", string(resBytes))
-	}
-
-	res := ubiAuthResponse{}
-	json.Unmarshal(resBytes, &res)
-
-	return n.AuthenticateUbiTicket(res.Ticket)
+	ubi := NewUbi("86263886-327a-4328-ac69-527f0d20a237")
+	ubi.Authenticate(email, password)
+	return n.AuthenticateUbiTicket(ubi.GetTicket())
 }
 
 func (n *nadeo) AuthenticateUbiTicket(ticket string) error {
