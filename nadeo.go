@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/codecat/go-libs/log"
 	"github.com/patrickmn/go-cache"
 )
 
@@ -23,10 +24,13 @@ type Nadeo interface {
 	Post(url, data string) (string, error)
 
 	CheckRefresh() error
+
+	SetLogging(enabled bool)
 }
 
 type nadeo struct {
-	audience string
+	baseURLCore string
+	audience    string
 
 	accessToken  string
 	refreshToken string
@@ -35,6 +39,8 @@ type nadeo struct {
 	tokenExpirationTime uint32
 
 	requestCache *cache.Cache
+
+	logRequests bool
 }
 
 func (n *nadeo) AuthenticateUbi(email, password string) error {
@@ -46,7 +52,7 @@ func (n *nadeo) AuthenticateUbi(email, password string) error {
 func (n *nadeo) AuthenticateUbiTicket(ticket string) error {
 	body := bytes.NewReader([]byte("{\"audience\":\"" + n.audience + "\"}"))
 
-	req, err := http.NewRequest("POST", "https://prod.trackmania.core.nadeo.online/v2/authentication/token/ubiservices", body)
+	req, err := http.NewRequest("POST", n.baseURLCore+"/v2/authentication/token/ubiservices", body)
 	if err != nil {
 		return fmt.Errorf("unable to make request: %s", err.Error())
 	}
@@ -64,9 +70,7 @@ func (n *nadeo) AuthenticateUbiTicket(ticket string) error {
 	io.ReadFull(resp.Body, resBytes)
 
 	if resp.StatusCode != 200 {
-		respError := errorResponse{}
-		json.Unmarshal(resBytes, &respError)
-		return fmt.Errorf("error %d from server: %s", respError.Code, respError.Message)
+		return fmt.Errorf("error from server: %s", getError(resBytes))
 	}
 
 	res := authResponse{}
@@ -85,7 +89,7 @@ func (n *nadeo) AuthenticateUbiTicket(ticket string) error {
 func (n *nadeo) Authenticate(username, password string) error {
 	body := bytes.NewReader([]byte("{\"audience\":\"" + n.audience + "\"}"))
 
-	req, err := http.NewRequest("POST", "https://prod.trackmania.core.nadeo.online/v2/authentication/token/basic", body)
+	req, err := http.NewRequest("POST", n.baseURLCore+"/v2/authentication/token/basic", body)
 	if err != nil {
 		return fmt.Errorf("unable to make request: %s", err.Error())
 	}
@@ -103,12 +107,10 @@ func (n *nadeo) Authenticate(username, password string) error {
 	io.ReadFull(resp.Body, resBytes)
 
 	if resp.StatusCode != 200 {
-		respError := errorResponse{}
-		json.Unmarshal(resBytes, &respError)
 		// 401: "Username could not be found."  -> Invalid username
 		// 401: "Invalid credentials."          -> Invalid password
 		//   0: "There was a validation error." -> Invalid audience
-		return fmt.Errorf("error %d from server: %s", respError.Code, respError.Message)
+		return fmt.Errorf("error from server: %s", getError(resBytes))
 	}
 
 	res := authResponse{}
@@ -147,12 +149,20 @@ func (n *nadeo) CheckRefresh() error {
 	return nil
 }
 
+func (n *nadeo) SetLogging(enabled bool) {
+	n.logRequests = enabled
+}
+
 func (n *nadeo) request(method string, url string, useCache bool, data string) (string, error) {
 	if useCache {
 		cachedResponse, cacheFound := n.requestCache.Get(url)
 		if cacheFound {
 			return cachedResponse.(string), nil
 		}
+	}
+
+	if n.logRequests {
+		log.Trace("Nadeo request: %s => %s", method, url)
 	}
 
 	err := n.CheckRefresh()
@@ -186,10 +196,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 	}
 
 	if resp.StatusCode != 200 {
-		//respError := errorResponse{}
-		//err := json.Unmarshal(resBytes, &respError)
-		return "", fmt.Errorf("error from server: %s", string(resBytes))
-		//return "", fmt.Errorf("error %d from server: %s", respError.Code, respError.Message)
+		return "", fmt.Errorf("error from server: %s", getError(resBytes))
 	}
 
 	if useCache {
@@ -200,7 +207,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 }
 
 func (n *nadeo) refreshNow() error {
-	req, err := http.NewRequest("POST", "https://prod.trackmania.core.nadeo.online/v2/authentication/token/refresh", nil)
+	req, err := http.NewRequest("POST", n.baseURLCore+"/v2/authentication/token/refresh", nil)
 	if err != nil {
 		return fmt.Errorf("unable to make request: %s", err.Error())
 	}
@@ -217,9 +224,7 @@ func (n *nadeo) refreshNow() error {
 	io.ReadFull(resp.Body, resBytes)
 
 	if resp.StatusCode != 200 {
-		respError := errorResponse{}
-		json.Unmarshal(resBytes, &respError)
-		return fmt.Errorf("error %d from server: %s", respError.Code, respError.Message)
+		return fmt.Errorf("error from server: %s", getError(resBytes))
 	}
 
 	res := authResponse{}
@@ -242,8 +247,18 @@ func NewNadeo() Nadeo {
 
 // NewNadeoWithAudience creates a new Nadeo object ready for authentication with the given audience.
 func NewNadeoWithAudience(audience string) Nadeo {
+	return NewNadeoWithCoreAndAudience(
+		"https://prod.trackmania.core.nadeo.online",
+		audience,
+	)
+}
+
+// NewNadeoWithCoreAndAudience creates a new Nadeo object ready for authentication with the given core API base URL and audience.
+func NewNadeoWithCoreAndAudience(core, audience string) Nadeo {
 	return &nadeo{
-		audience:     audience,
+		baseURLCore: core,
+		audience:    audience,
+
 		requestCache: cache.New(1*time.Minute, 5*time.Minute),
 	}
 }
