@@ -29,7 +29,8 @@ type Nadeo interface {
 }
 
 type nadeo struct {
-	audience string
+	baseURLCore string
+	audience    string
 
 	accessToken  string
 	refreshToken string
@@ -78,7 +79,7 @@ func (n *nadeo) AuthenticateUbi(email, password string) error {
 func (n *nadeo) AuthenticateUbiTicket(ticket string) error {
 	body := bytes.NewReader([]byte("{\"audience\":\"" + n.audience + "\"}"))
 
-	req, err := http.NewRequest("POST", "https://prod.trackmania.core.nadeo.online/v2/authentication/token/ubiservices", body)
+	req, err := http.NewRequest("POST", n.baseURLCore+"/v2/authentication/token/ubiservices", body)
 	if err != nil {
 		return fmt.Errorf("unable to make request: %s", err.Error())
 	}
@@ -115,7 +116,7 @@ func (n *nadeo) AuthenticateUbiTicket(ticket string) error {
 func (n *nadeo) Authenticate(username, password string) error {
 	body := bytes.NewReader([]byte("{\"audience\":\"" + n.audience + "\"}"))
 
-	req, err := http.NewRequest("POST", "https://prod.trackmania.core.nadeo.online/v2/authentication/token/basic", body)
+	req, err := http.NewRequest("POST", n.baseURLCore+"/v2/authentication/token/basic", body)
 	if err != nil {
 		return fmt.Errorf("unable to make request: %s", err.Error())
 	}
@@ -233,7 +234,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 }
 
 func (n *nadeo) refreshNow() error {
-	req, err := http.NewRequest("POST", "https://prod.trackmania.core.nadeo.online/v2/authentication/token/refresh", nil)
+	req, err := http.NewRequest("POST", n.baseURLCore+"/v2/authentication/token/refresh", nil)
 	if err != nil {
 		return fmt.Errorf("unable to make request: %s", err.Error())
 	}
@@ -273,8 +274,18 @@ func NewNadeo() Nadeo {
 
 // NewNadeoWithAudience creates a new Nadeo object ready for authentication with the given audience.
 func NewNadeoWithAudience(audience string) Nadeo {
+	return NewNadeoWithCoreAndAudience(
+		"https://prod.trackmania.core.nadeo.online",
+		audience,
+	)
+}
+
+// NewNadeoWithCoreAndAudience creates a new Nadeo object ready for authentication with the given core API base URL and audience.
+func NewNadeoWithCoreAndAudience(core, audience string) Nadeo {
 	return &nadeo{
-		audience:     audience,
+		baseURLCore: core,
+		audience:    audience,
+
 		requestCache: cache.New(1*time.Minute, 5*time.Minute),
 	}
 }
