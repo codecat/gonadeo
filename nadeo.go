@@ -2,6 +2,7 @@ package nadeo
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,7 +18,8 @@ import (
 type Nadeo interface {
 	AuthenticateUbi(email, password string) error
 	AuthenticateUbiTicket(ticket string) error
-	Authenticate(username, password string) error
+	AuthenticateBasic(username, password string) error
+	AuthenticateBasicEmail(email, password, region string) error
 	GetTokenInfo() TokenInfo
 
 	Get(url string, useCache bool) (string, error)
@@ -30,6 +32,7 @@ type Nadeo interface {
 
 type nadeo struct {
 	baseURLCore string
+	region      string
 	audience    string
 
 	accessToken  string
@@ -86,7 +89,7 @@ func (n *nadeo) AuthenticateUbiTicket(ticket string) error {
 	return nil
 }
 
-func (n *nadeo) Authenticate(username, password string) error {
+func (n *nadeo) AuthenticateBasic(username, password string) error {
 	body := bytes.NewReader([]byte("{\"audience\":\"" + n.audience + "\"}"))
 
 	req, err := http.NewRequest("POST", n.baseURLCore+"/v2/authentication/token/basic", body)
@@ -96,6 +99,52 @@ func (n *nadeo) Authenticate(username, password string) error {
 
 	req.Header.Add("Content-Type", "application/json")
 	req.SetBasicAuth(username, password)
+
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("unable to perform request: %s", err.Error())
+	}
+
+	resBytes := make([]byte, resp.ContentLength)
+	io.ReadFull(resp.Body, resBytes)
+
+	if resp.StatusCode != 200 {
+		// 401: "Username could not be found."  -> Invalid username
+		// 401: "Invalid credentials."          -> Invalid password
+		//   0: "There was a validation error." -> Invalid audience
+		return fmt.Errorf("error from server: %s", getError(resBytes))
+	}
+
+	res := authResponse{}
+	json.Unmarshal(resBytes, &res)
+
+	n.accessToken = res.AccessToken
+	n.refreshToken = res.RefreshToken
+
+	tokenInfo := parseTokenInfo(n.accessToken)
+	n.tokenRefreshTime = tokenInfo.Payload.Rat
+	n.tokenExpirationTime = tokenInfo.Payload.Exp
+
+	return nil
+}
+
+func (n *nadeo) AuthenticateBasicEmail(email, password, region string) error {
+	body := bytes.NewReader([]byte("{\"audience\":\"" + n.audience + "\"}"))
+
+	req, err := http.NewRequest("POST", n.baseURLCore+"/v2/authentication/token/basic", body)
+	if err != nil {
+		return fmt.Errorf("unable to make request: %s", err.Error())
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+
+	auth := "basic_email_v1 c="
+	auth += base64.StdEncoding.EncodeToString([]byte(email + ":" + password))
+	if region != "" {
+		auth += " r=" + region
+	}
+	req.Header.Set("Authorization", auth)
 
 	client := http.Client{}
 	resp, err := client.Do(req)
