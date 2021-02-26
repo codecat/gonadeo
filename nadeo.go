@@ -28,6 +28,7 @@ type Nadeo interface {
 	CheckRefresh() error
 
 	SetLogging(enabled bool)
+	GetRequestCount() uint64
 }
 
 type nadeo struct {
@@ -43,7 +44,8 @@ type nadeo struct {
 
 	requestCache *cache.Cache
 
-	logRequests bool
+	logRequests  bool
+	requestCount uint64
 }
 
 func (n *nadeo) AuthenticateUbi(email, password string) error {
@@ -202,6 +204,10 @@ func (n *nadeo) SetLogging(enabled bool) {
 	n.logRequests = enabled
 }
 
+func (n *nadeo) GetRequestCount() uint64 {
+	return n.requestCount
+}
+
 func (n *nadeo) request(method string, url string, useCache bool, data string) (string, error) {
 	if useCache {
 		cachedResponse, cacheFound := n.requestCache.Get(url)
@@ -213,6 +219,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 	if n.logRequests {
 		log.Trace("Nadeo request: %s => %s", method, url)
 	}
+	n.requestCount++
 
 	err := n.CheckRefresh()
 	if err != nil {
