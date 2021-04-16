@@ -23,7 +23,12 @@ type Nadeo interface {
 	GetTokenInfo() TokenInfo
 
 	Get(url string, useCache bool) (string, error)
+	Options(url string, useCache bool) (string, error)
+	Head(url string, useCache bool) (string, error)
 	Post(url, data string) (string, error)
+	Put(url, data string) (string, error)
+	Patch(url, data string) (string, error)
+	Delete(url string) (string, error)
 
 	CheckRefresh() error
 
@@ -185,8 +190,28 @@ func (n *nadeo) Get(url string, useCache bool) (string, error) {
 	return n.request("GET", url, useCache, "")
 }
 
+func (n *nadeo) Options(url string, useCache bool) (string, error) {
+	return n.request("OPTIONS", url, useCache, "")
+}
+
+func (n *nadeo) Head(url string, useCache bool) (string, error) {
+	return n.request("HEAD", url, useCache, "")
+}
+
 func (n *nadeo) Post(url, data string) (string, error) {
 	return n.request("POST", url, false, data)
+}
+
+func (n *nadeo) Put(url, data string) (string, error) {
+	return n.request("PUT", url, false, data)
+}
+
+func (n *nadeo) Patch(url, data string) (string, error) {
+	return n.request("PATCH", url, false, data)
+}
+
+func (n *nadeo) Delete(url string) (string, error) {
+	return n.request("DELETE", url, false, "")
 }
 
 func (n *nadeo) CheckRefresh() error {
@@ -227,7 +252,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 	}
 
 	var body io.Reader
-	if method == "POST" {
+	if method == "POST" || method == "PUT" || method == "PATCH" {
 		body = bytes.NewReader([]byte(data))
 	}
 
