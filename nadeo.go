@@ -377,7 +377,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 	}
 
 	if useCache {
-		n.requestCache.Set(url, string(resBytes), cache.DefaultExpiration)
+		n.requestCache.Set(url, resBytes, cache.DefaultExpiration)
 	}
 
 	return resBytes, nil
