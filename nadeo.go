@@ -14,12 +14,13 @@ import (
 	"github.com/patrickmn/go-cache"
 )
 
+// AsyncResponse contains the result of an asynchronous API request.
 type AsyncResponse struct {
-	buf []byte
-	err error
+	Buf []byte
+	Err error
 }
 
-// Nadeo provides access to the Nadeo Live Services API.
+// Nadeo provides access to Nadeo Services.
 type Nadeo interface {
 	AuthenticateUbi(email, password string) error
 	AuthenticateUbiTicket(ticket string) error
@@ -340,7 +341,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 
 	err := n.CheckRefresh()
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	var body io.Reader
@@ -350,7 +351,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
-		return []byte{}, fmt.Errorf("unable to make request: %s", err.Error())
+		return nil, fmt.Errorf("unable to make request: %s", err.Error())
 	}
 
 	req.Header.Add("Authorization", "nadeo_v1 t="+n.accessToken)
@@ -363,16 +364,16 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 	client := http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return []byte{}, fmt.Errorf("unable to perform request: %s", err.Error())
+		return nil, fmt.Errorf("unable to perform request: %s", err.Error())
 	}
 
 	resBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return []byte{}, fmt.Errorf("unable to read from stream: %s", err.Error())
+		return nil, fmt.Errorf("unable to read from stream: %s", err.Error())
 	}
 
 	if resp.StatusCode != 200 {
-		return []byte{}, fmt.Errorf("error from server: %s", getError(resBytes))
+		return nil, fmt.Errorf("error from server: %s", getError(resBytes))
 	}
 
 	if useCache {
