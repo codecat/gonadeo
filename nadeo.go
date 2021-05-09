@@ -22,13 +22,13 @@ type Nadeo interface {
 	AuthenticateBasicEmail(email, password, region string) error
 	GetTokenInfo() TokenInfo
 
-	Get(url string, useCache bool) (string, error)
-	Options(url string, useCache bool) (string, error)
-	Head(url string, useCache bool) (string, error)
-	Post(url, data string) (string, error)
-	Put(url, data string) (string, error)
-	Patch(url, data string) (string, error)
-	Delete(url string) (string, error)
+	Get(url string, useCache bool) ([]byte, error)
+	Options(url string, useCache bool) ([]byte, error)
+	Head(url string, useCache bool) ([]byte, error)
+	Post(url, data string) ([]byte, error)
+	Put(url, data string) ([]byte, error)
+	Patch(url, data string) ([]byte, error)
+	Delete(url string) ([]byte, error)
 
 	CheckRefresh() error
 
@@ -198,31 +198,31 @@ func (n *nadeo) GetTokenInfo() TokenInfo {
 	return parseTokenInfo(n.accessToken)
 }
 
-func (n *nadeo) Get(url string, useCache bool) (string, error) {
+func (n *nadeo) Get(url string, useCache bool) ([]byte, error) {
 	return n.request("GET", url, useCache, "")
 }
 
-func (n *nadeo) Options(url string, useCache bool) (string, error) {
+func (n *nadeo) Options(url string, useCache bool) ([]byte, error) {
 	return n.request("OPTIONS", url, useCache, "")
 }
 
-func (n *nadeo) Head(url string, useCache bool) (string, error) {
+func (n *nadeo) Head(url string, useCache bool) ([]byte, error) {
 	return n.request("HEAD", url, useCache, "")
 }
 
-func (n *nadeo) Post(url, data string) (string, error) {
+func (n *nadeo) Post(url, data string) ([]byte, error) {
 	return n.request("POST", url, false, data)
 }
 
-func (n *nadeo) Put(url, data string) (string, error) {
+func (n *nadeo) Put(url, data string) ([]byte, error) {
 	return n.request("PUT", url, false, data)
 }
 
-func (n *nadeo) Patch(url, data string) (string, error) {
+func (n *nadeo) Patch(url, data string) ([]byte, error) {
 	return n.request("PATCH", url, false, data)
 }
 
-func (n *nadeo) Delete(url string) (string, error) {
+func (n *nadeo) Delete(url string) ([]byte, error) {
 	return n.request("DELETE", url, false, "")
 }
 
@@ -249,11 +249,11 @@ func (n *nadeo) GetRequestCount() uint64 {
 	return n.requestCount
 }
 
-func (n *nadeo) request(method string, url string, useCache bool, data string) (string, error) {
+func (n *nadeo) request(method string, url string, useCache bool, data string) ([]byte, error) {
 	if useCache {
 		cachedResponse, cacheFound := n.requestCache.Get(url)
 		if cacheFound {
-			return cachedResponse.(string), nil
+			return cachedResponse.([]byte), nil
 		}
 	}
 
@@ -264,7 +264,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 
 	err := n.CheckRefresh()
 	if err != nil {
-		return "", err
+		return []byte{}, err
 	}
 
 	var body io.Reader
@@ -274,7 +274,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
-		return "", fmt.Errorf("unable to make request: %s", err.Error())
+		return []byte{}, fmt.Errorf("unable to make request: %s", err.Error())
 	}
 
 	req.Header.Add("Authorization", "nadeo_v1 t="+n.accessToken)
@@ -287,23 +287,23 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 	client := http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("unable to perform request: %s", err.Error())
+		return []byte{}, fmt.Errorf("unable to perform request: %s", err.Error())
 	}
 
 	resBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("unable to read from stream: %s", err.Error())
+		return []byte{}, fmt.Errorf("unable to read from stream: %s", err.Error())
 	}
 
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("error from server: %s", getError(resBytes))
+		return []byte{}, fmt.Errorf("error from server: %s", getError(resBytes))
 	}
 
 	if useCache {
 		n.requestCache.Set(url, string(resBytes), cache.DefaultExpiration)
 	}
 
-	return string(resBytes), nil
+	return resBytes, nil
 }
 
 func (n *nadeo) refreshNow() error {
