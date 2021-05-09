@@ -32,11 +32,14 @@ type Nadeo interface {
 
 	CheckRefresh() error
 
+	SetUserAgent(userAgent string)
 	SetLogging(enabled bool)
 	GetRequestCount() uint64
 }
 
 type nadeo struct {
+	userAgent string
+
 	baseURLCore string
 	region      string
 	audience    string
@@ -69,6 +72,9 @@ func (n *nadeo) AuthenticateUbiTicket(ticket string) error {
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "ubi_v1 t="+ticket)
+	if n.userAgent != "" {
+		req.Header.Add("User-Agent", n.userAgent)
+	}
 
 	client := http.Client{}
 	resp, err := client.Do(req)
@@ -105,6 +111,9 @@ func (n *nadeo) AuthenticateBasic(username, password string) error {
 	}
 
 	req.Header.Add("Content-Type", "application/json")
+	if n.userAgent != "" {
+		req.Header.Add("User-Agent", n.userAgent)
+	}
 	req.SetBasicAuth(username, password)
 
 	client := http.Client{}
@@ -145,6 +154,9 @@ func (n *nadeo) AuthenticateBasicEmail(email, password, region string) error {
 	}
 
 	req.Header.Add("Content-Type", "application/json")
+	if n.userAgent != "" {
+		req.Header.Add("User-Agent", n.userAgent)
+	}
 
 	auth := "basic_email_v1 c="
 	auth += base64.StdEncoding.EncodeToString([]byte(email + ":" + password))
@@ -225,6 +237,10 @@ func (n *nadeo) CheckRefresh() error {
 	return nil
 }
 
+func (n *nadeo) SetUserAgent(userAgent string) {
+	n.userAgent = userAgent
+}
+
 func (n *nadeo) SetLogging(enabled bool) {
 	n.logRequests = enabled
 }
@@ -264,6 +280,9 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 	req.Header.Add("Authorization", "nadeo_v1 t="+n.accessToken)
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/json")
+	if n.userAgent != "" {
+		req.Header.Add("User-Agent", n.userAgent)
+	}
 
 	client := http.Client{}
 	resp, err := client.Do(req)
@@ -294,6 +313,9 @@ func (n *nadeo) refreshNow() error {
 	}
 
 	req.Header.Add("Authorization", "nadeo_v1 t="+n.refreshToken)
+	if n.userAgent != "" {
+		req.Header.Add("User-Agent", n.userAgent)
+	}
 
 	client := http.Client{}
 	resp, err := client.Do(req)
