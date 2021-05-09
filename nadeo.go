@@ -14,6 +14,11 @@ import (
 	"github.com/patrickmn/go-cache"
 )
 
+type AsyncResponse struct {
+	buf []byte
+	err error
+}
+
 // Nadeo provides access to the Nadeo Live Services API.
 type Nadeo interface {
 	AuthenticateUbi(email, password string) error
@@ -29,6 +34,14 @@ type Nadeo interface {
 	Put(url, data string) ([]byte, error)
 	Patch(url, data string) ([]byte, error)
 	Delete(url string) ([]byte, error)
+
+	AsyncGet(url string, useCache bool) chan AsyncResponse
+	AsyncOptions(url string, useCache bool) chan AsyncResponse
+	AsyncHead(url string, useCache bool) chan AsyncResponse
+	AsyncPost(url, data string) chan AsyncResponse
+	AsyncPut(url, data string) chan AsyncResponse
+	AsyncPatch(url, data string) chan AsyncResponse
+	AsyncDelete(url string) chan AsyncResponse
 
 	CheckRefresh() error
 
@@ -224,6 +237,69 @@ func (n *nadeo) Patch(url, data string) ([]byte, error) {
 
 func (n *nadeo) Delete(url string) ([]byte, error) {
 	return n.request("DELETE", url, false, "")
+}
+
+func (n *nadeo) AsyncGet(url string, useCache bool) chan AsyncResponse {
+	ret := make(chan AsyncResponse)
+	go func() {
+		res, err := n.Get(url, useCache)
+		ret <- AsyncResponse{res, err}
+	}()
+	return ret
+}
+
+func (n *nadeo) AsyncOptions(url string, useCache bool) chan AsyncResponse {
+	ret := make(chan AsyncResponse)
+	go func() {
+		res, err := n.Options(url, useCache)
+		ret <- AsyncResponse{res, err}
+	}()
+	return ret
+}
+
+func (n *nadeo) AsyncHead(url string, useCache bool) chan AsyncResponse {
+	ret := make(chan AsyncResponse)
+	go func() {
+		res, err := n.Head(url, useCache)
+		ret <- AsyncResponse{res, err}
+	}()
+	return ret
+}
+
+func (n *nadeo) AsyncPost(url, data string) chan AsyncResponse {
+	ret := make(chan AsyncResponse)
+	go func() {
+		res, err := n.Post(url, data)
+		ret <- AsyncResponse{res, err}
+	}()
+	return ret
+}
+
+func (n *nadeo) AsyncPut(url, data string) chan AsyncResponse {
+	ret := make(chan AsyncResponse)
+	go func() {
+		res, err := n.Put(url, data)
+		ret <- AsyncResponse{res, err}
+	}()
+	return ret
+}
+
+func (n *nadeo) AsyncPatch(url, data string) chan AsyncResponse {
+	ret := make(chan AsyncResponse)
+	go func() {
+		res, err := n.Patch(url, data)
+		ret <- AsyncResponse{res, err}
+	}()
+	return ret
+}
+
+func (n *nadeo) AsyncDelete(url string) chan AsyncResponse {
+	ret := make(chan AsyncResponse)
+	go func() {
+		res, err := n.Delete(url)
+		ret <- AsyncResponse{res, err}
+	}()
+	return ret
 }
 
 func (n *nadeo) CheckRefresh() error {
