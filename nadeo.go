@@ -373,7 +373,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("error from server: %s", getError(resBytes))
+		return nil, fmt.Errorf("error %d from server: %s", resp.StatusCode, getError(resBytes))
 	}
 
 	if useCache {
