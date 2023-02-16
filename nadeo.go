@@ -49,9 +49,11 @@ type Nadeo interface {
 	SetUserAgent(userAgent string)
 	SetLogging(enabled bool)
 	GetRequestCount() uint64
+	SetTimeout(timeout time.Duration)
 }
 
 type nadeo struct {
+	client      http.Client
 	idempotency sync.Map
 
 	userAgent string
@@ -91,7 +93,7 @@ func (n *nadeo) AuthenticateUbiTicket(ticket string) error {
 		req.Header.Add("User-Agent", n.userAgent)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := n.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("unable to perform request: %s", err.Error())
 	}
@@ -130,7 +132,7 @@ func (n *nadeo) AuthenticateBasic(username, password string) error {
 	}
 	req.SetBasicAuth(username, password)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := n.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("unable to perform request: %s", err.Error())
 	}
@@ -178,7 +180,7 @@ func (n *nadeo) AuthenticateBasicEmail(email, password, region string) error {
 	}
 	req.Header.Set("Authorization", auth)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := n.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("unable to perform request: %s", err.Error())
 	}
@@ -324,6 +326,10 @@ func (n *nadeo) GetRequestCount() uint64 {
 	return n.requestCount
 }
 
+func (n *nadeo) SetTimeout(timeout time.Duration) {
+	n.client.Timeout = timeout
+}
+
 func (n *nadeo) request(method string, url string, useCache bool, data string) ([]byte, error) {
 	var lock *sync.Mutex
 	defer func() {
@@ -370,7 +376,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 		req.Header.Add("User-Agent", n.userAgent)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := n.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("unable to perform request: %s", err.Error())
 	}
@@ -402,7 +408,7 @@ func (n *nadeo) refreshNow() error {
 		req.Header.Add("User-Agent", n.userAgent)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := n.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("unable to perform request: %s", err.Error())
 	}
@@ -443,6 +449,10 @@ func NewNadeoWithAudience(audience string) Nadeo {
 // NewNadeoWithCoreAndAudience creates a new Nadeo object ready for authentication with the given core API base URL and audience.
 func NewNadeoWithCoreAndAudience(core, audience string) Nadeo {
 	return &nadeo{
+		client: http.Client{
+			Timeout: 1 * time.Minute,
+		},
+
 		baseURLCore: core,
 		audience:    audience,
 
