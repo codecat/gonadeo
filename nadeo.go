@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/codecat/go-libs/log"
@@ -51,6 +52,8 @@ type Nadeo interface {
 }
 
 type nadeo struct {
+	idempotency sync.Map
+
 	userAgent string
 
 	baseURLCore string
@@ -88,8 +91,7 @@ func (n *nadeo) AuthenticateUbiTicket(ticket string) error {
 		req.Header.Add("User-Agent", n.userAgent)
 	}
 
-	client := http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("unable to perform request: %s", err.Error())
 	}
@@ -128,8 +130,7 @@ func (n *nadeo) AuthenticateBasic(username, password string) error {
 	}
 	req.SetBasicAuth(username, password)
 
-	client := http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("unable to perform request: %s", err.Error())
 	}
@@ -177,8 +178,7 @@ func (n *nadeo) AuthenticateBasicEmail(email, password, region string) error {
 	}
 	req.Header.Set("Authorization", auth)
 
-	client := http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("unable to perform request: %s", err.Error())
 	}
@@ -325,7 +325,18 @@ func (n *nadeo) GetRequestCount() uint64 {
 }
 
 func (n *nadeo) request(method string, url string, useCache bool, data string) ([]byte, error) {
+	var lock *sync.Mutex
+	defer func() {
+		if lock != nil {
+			lock.Unlock()
+		}
+	}()
+
 	if useCache {
+		lockAny, _ := n.idempotency.LoadOrStore(url, &sync.Mutex{})
+		lock = lockAny.(*sync.Mutex)
+		lock.Lock()
+
 		cachedResponse, cacheFound := n.requestCache.Get(url)
 		if cacheFound {
 			return cachedResponse.([]byte), nil
@@ -359,8 +370,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 		req.Header.Add("User-Agent", n.userAgent)
 	}
 
-	client := http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("unable to perform request: %s", err.Error())
 	}
@@ -392,8 +402,7 @@ func (n *nadeo) refreshNow() error {
 		req.Header.Add("User-Agent", n.userAgent)
 	}
 
-	client := http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("unable to perform request: %s", err.Error())
 	}
