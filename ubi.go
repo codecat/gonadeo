@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -114,7 +113,7 @@ func (u *ubi) request(method, url string, useCache bool, data string) (string, e
 		return "", fmt.Errorf("unable to perform ubi request: %s", err.Error())
 	}
 
-	resBytes, err := ioutil.ReadAll(resp.Body)
+	resBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("unable to read from ubi stream: %s", err.Error())
 	}

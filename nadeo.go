@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -366,7 +365,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 		return nil, fmt.Errorf("unable to perform request: %s", err.Error())
 	}
 
-	resBytes, err := ioutil.ReadAll(resp.Body)
+	resBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read from stream: %s", err.Error())
 	}
