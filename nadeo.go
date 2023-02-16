@@ -55,7 +55,6 @@ type nadeo struct {
 	userAgent string
 
 	baseURLCore string
-	region      string
 	audience    string
 
 	accessToken  string
