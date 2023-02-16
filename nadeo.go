@@ -49,12 +49,15 @@ type Nadeo interface {
 	SetUserAgent(userAgent string)
 	SetLogging(enabled bool)
 	GetRequestCount() uint64
+	SetIdempotency(enabled bool)
 	SetTimeout(timeout time.Duration)
 }
 
 type nadeo struct {
-	client      http.Client
-	idempotency sync.Map
+	client http.Client
+
+	idempotency    sync.Map
+	useIdempotency bool
 
 	userAgent string
 
@@ -326,6 +329,10 @@ func (n *nadeo) GetRequestCount() uint64 {
 	return n.requestCount
 }
 
+func (n *nadeo) SetIdempotency(enabled bool) {
+	n.useIdempotency = enabled
+}
+
 func (n *nadeo) SetTimeout(timeout time.Duration) {
 	n.client.Timeout = timeout
 }
@@ -339,9 +346,11 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 	}()
 
 	if useCache {
-		lockAny, _ := n.idempotency.LoadOrStore(url, &sync.Mutex{})
-		lock = lockAny.(*sync.Mutex)
-		lock.Lock()
+		if n.useIdempotency {
+			lockAny, _ := n.idempotency.LoadOrStore(url, &sync.Mutex{})
+			lock = lockAny.(*sync.Mutex)
+			lock.Lock()
+		}
 
 		cachedResponse, cacheFound := n.requestCache.Get(url)
 		if cacheFound {
@@ -452,6 +461,8 @@ func NewNadeoWithCoreAndAudience(core, audience string) Nadeo {
 		client: http.Client{
 			Timeout: 1 * time.Minute,
 		},
+
+		useIdempotency: true,
 
 		baseURLCore: core,
 		audience:    audience,
