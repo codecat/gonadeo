@@ -69,6 +69,7 @@ type nadeo struct {
 
 	tokenRefreshTime    uint32
 	tokenExpirationTime uint32
+	tokenRefreshMutex   sync.Mutex
 
 	requestCache *cache.Cache
 
@@ -307,6 +308,9 @@ func (n *nadeo) AsyncDelete(url string) chan AsyncResponse {
 }
 
 func (n *nadeo) CheckRefresh() error {
+	n.tokenRefreshMutex.Lock()
+	defer n.tokenRefreshMutex.Unlock()
+
 	now := uint32(time.Now().Unix())
 	if now > n.tokenRefreshTime {
 		err := n.refreshNow()
