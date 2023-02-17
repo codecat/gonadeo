@@ -31,17 +31,17 @@ type Nadeo interface {
 	Get(url string, useCache bool) ([]byte, error)
 	Options(url string, useCache bool) ([]byte, error)
 	Head(url string, useCache bool) ([]byte, error)
-	Post(url, data string) ([]byte, error)
-	Put(url, data string) ([]byte, error)
-	Patch(url, data string) ([]byte, error)
+	Post(url string, data []byte) ([]byte, error)
+	Put(url string, data []byte) ([]byte, error)
+	Patch(url string, data []byte) ([]byte, error)
 	Delete(url string) ([]byte, error)
 
 	AsyncGet(url string, useCache bool) chan AsyncResponse
 	AsyncOptions(url string, useCache bool) chan AsyncResponse
 	AsyncHead(url string, useCache bool) chan AsyncResponse
-	AsyncPost(url, data string) chan AsyncResponse
-	AsyncPut(url, data string) chan AsyncResponse
-	AsyncPatch(url, data string) chan AsyncResponse
+	AsyncPost(url string, data []byte) chan AsyncResponse
+	AsyncPut(url string, data []byte) chan AsyncResponse
+	AsyncPatch(url string, data []byte) chan AsyncResponse
 	AsyncDelete(url string) chan AsyncResponse
 
 	CheckRefresh() error
@@ -217,31 +217,31 @@ func (n *nadeo) GetTokenInfo() TokenInfo {
 }
 
 func (n *nadeo) Get(url string, useCache bool) ([]byte, error) {
-	return n.request("GET", url, useCache, "")
+	return n.request("GET", url, useCache, nil)
 }
 
 func (n *nadeo) Options(url string, useCache bool) ([]byte, error) {
-	return n.request("OPTIONS", url, useCache, "")
+	return n.request("OPTIONS", url, useCache, nil)
 }
 
 func (n *nadeo) Head(url string, useCache bool) ([]byte, error) {
-	return n.request("HEAD", url, useCache, "")
+	return n.request("HEAD", url, useCache, nil)
 }
 
-func (n *nadeo) Post(url, data string) ([]byte, error) {
+func (n *nadeo) Post(url string, data []byte) ([]byte, error) {
 	return n.request("POST", url, false, data)
 }
 
-func (n *nadeo) Put(url, data string) ([]byte, error) {
+func (n *nadeo) Put(url string, data []byte) ([]byte, error) {
 	return n.request("PUT", url, false, data)
 }
 
-func (n *nadeo) Patch(url, data string) ([]byte, error) {
+func (n *nadeo) Patch(url string, data []byte) ([]byte, error) {
 	return n.request("PATCH", url, false, data)
 }
 
 func (n *nadeo) Delete(url string) ([]byte, error) {
-	return n.request("DELETE", url, false, "")
+	return n.request("DELETE", url, false, nil)
 }
 
 func (n *nadeo) AsyncGet(url string, useCache bool) chan AsyncResponse {
@@ -271,7 +271,7 @@ func (n *nadeo) AsyncHead(url string, useCache bool) chan AsyncResponse {
 	return ret
 }
 
-func (n *nadeo) AsyncPost(url, data string) chan AsyncResponse {
+func (n *nadeo) AsyncPost(url string, data []byte) chan AsyncResponse {
 	ret := make(chan AsyncResponse)
 	go func() {
 		res, err := n.Post(url, data)
@@ -280,7 +280,7 @@ func (n *nadeo) AsyncPost(url, data string) chan AsyncResponse {
 	return ret
 }
 
-func (n *nadeo) AsyncPut(url, data string) chan AsyncResponse {
+func (n *nadeo) AsyncPut(url string, data []byte) chan AsyncResponse {
 	ret := make(chan AsyncResponse)
 	go func() {
 		res, err := n.Put(url, data)
@@ -289,7 +289,7 @@ func (n *nadeo) AsyncPut(url, data string) chan AsyncResponse {
 	return ret
 }
 
-func (n *nadeo) AsyncPatch(url, data string) chan AsyncResponse {
+func (n *nadeo) AsyncPatch(url string, data []byte) chan AsyncResponse {
 	ret := make(chan AsyncResponse)
 	go func() {
 		res, err := n.Patch(url, data)
@@ -341,7 +341,7 @@ func (n *nadeo) SetTimeout(timeout time.Duration) {
 	n.client.Timeout = timeout
 }
 
-func (n *nadeo) request(method string, url string, useCache bool, data string) ([]byte, error) {
+func (n *nadeo) request(method string, url string, useCache bool, data []byte) ([]byte, error) {
 	var lock *sync.Mutex
 	defer func() {
 		if lock != nil {
@@ -373,8 +373,8 @@ func (n *nadeo) request(method string, url string, useCache bool, data string) (
 	}
 
 	var body io.Reader
-	if method == "POST" || method == "PUT" || method == "PATCH" {
-		body = bytes.NewReader([]byte(data))
+	if data != nil && (method == "POST" || method == "PUT" || method == "PATCH") {
+		body = bytes.NewReader(data)
 	}
 
 	req, err := http.NewRequest(method, url, body)
