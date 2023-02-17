@@ -28,21 +28,29 @@ type Nadeo interface {
 	AuthenticateBasicEmail(email, password, region string) error
 	GetTokenInfo() TokenInfo
 
-	Get(url string, useCache bool) ([]byte, error)
-	Options(url string, useCache bool) ([]byte, error)
-	Head(url string, useCache bool) ([]byte, error)
+	Get(url string, cacheTime time.Duration) ([]byte, error)
+	Options(url string, cacheTime time.Duration) ([]byte, error)
+	Head(url string, cacheTime time.Duration) ([]byte, error)
 	Post(url string, data []byte) ([]byte, error)
 	Put(url string, data []byte) ([]byte, error)
 	Patch(url string, data []byte) ([]byte, error)
 	Delete(url string) ([]byte, error)
 
-	AsyncGet(url string, useCache bool) chan AsyncResponse
-	AsyncOptions(url string, useCache bool) chan AsyncResponse
-	AsyncHead(url string, useCache bool) chan AsyncResponse
+	GetUncached(url string) ([]byte, error)
+	OptionsUncached(url string) ([]byte, error)
+	HeadUncached(url string) ([]byte, error)
+
+	AsyncGet(url string, cacheTime time.Duration) chan AsyncResponse
+	AsyncOptions(url string, cacheTime time.Duration) chan AsyncResponse
+	AsyncHead(url string, cacheTime time.Duration) chan AsyncResponse
 	AsyncPost(url string, data []byte) chan AsyncResponse
 	AsyncPut(url string, data []byte) chan AsyncResponse
 	AsyncPatch(url string, data []byte) chan AsyncResponse
 	AsyncDelete(url string) chan AsyncResponse
+
+	AsyncGetUncached(url string) chan AsyncResponse
+	AsyncOptionsUncached(url string) chan AsyncResponse
+	AsyncHeadUncached(url string) chan AsyncResponse
 
 	CheckRefresh() error
 
@@ -216,56 +224,68 @@ func (n *nadeo) GetTokenInfo() TokenInfo {
 	return parseTokenInfo(n.accessToken)
 }
 
-func (n *nadeo) Get(url string, useCache bool) ([]byte, error) {
-	return n.request("GET", url, useCache, nil)
+func (n *nadeo) Get(url string, cacheTime time.Duration) ([]byte, error) {
+	return n.request("GET", url, cacheTime, nil)
 }
 
-func (n *nadeo) Options(url string, useCache bool) ([]byte, error) {
-	return n.request("OPTIONS", url, useCache, nil)
+func (n *nadeo) Options(url string, cacheTime time.Duration) ([]byte, error) {
+	return n.request("OPTIONS", url, cacheTime, nil)
 }
 
-func (n *nadeo) Head(url string, useCache bool) ([]byte, error) {
-	return n.request("HEAD", url, useCache, nil)
+func (n *nadeo) Head(url string, cacheTime time.Duration) ([]byte, error) {
+	return n.request("HEAD", url, cacheTime, nil)
 }
 
 func (n *nadeo) Post(url string, data []byte) ([]byte, error) {
-	return n.request("POST", url, false, data)
+	return n.request("POST", url, 0, data)
 }
 
 func (n *nadeo) Put(url string, data []byte) ([]byte, error) {
-	return n.request("PUT", url, false, data)
+	return n.request("PUT", url, 0, data)
 }
 
 func (n *nadeo) Patch(url string, data []byte) ([]byte, error) {
-	return n.request("PATCH", url, false, data)
+	return n.request("PATCH", url, 0, data)
 }
 
 func (n *nadeo) Delete(url string) ([]byte, error) {
-	return n.request("DELETE", url, false, nil)
+	return n.request("DELETE", url, 0, nil)
 }
 
-func (n *nadeo) AsyncGet(url string, useCache bool) chan AsyncResponse {
+func (n *nadeo) GetUncached(url string) ([]byte, error) {
+	return n.request("GET", url, 0, nil)
+}
+
+func (n *nadeo) OptionsUncached(url string) ([]byte, error) {
+	return n.request("OPTIONS", url, 0, nil)
+}
+
+func (n *nadeo) HeadUncached(url string) ([]byte, error) {
+	return n.request("HEAD", url, 0, nil)
+}
+
+func (n *nadeo) AsyncGet(url string, cacheTime time.Duration) chan AsyncResponse {
 	ret := make(chan AsyncResponse)
 	go func() {
-		res, err := n.Get(url, useCache)
+		res, err := n.Get(url, cacheTime)
 		ret <- AsyncResponse{res, err}
 	}()
 	return ret
 }
 
-func (n *nadeo) AsyncOptions(url string, useCache bool) chan AsyncResponse {
+func (n *nadeo) AsyncOptions(url string, cacheTime time.Duration) chan AsyncResponse {
 	ret := make(chan AsyncResponse)
 	go func() {
-		res, err := n.Options(url, useCache)
+		res, err := n.Options(url, cacheTime)
 		ret <- AsyncResponse{res, err}
 	}()
 	return ret
 }
 
-func (n *nadeo) AsyncHead(url string, useCache bool) chan AsyncResponse {
+func (n *nadeo) AsyncHead(url string, cacheTime time.Duration) chan AsyncResponse {
 	ret := make(chan AsyncResponse)
 	go func() {
-		res, err := n.Head(url, useCache)
+		res, err := n.Head(url, cacheTime)
 		ret <- AsyncResponse{res, err}
 	}()
 	return ret
@@ -307,6 +327,33 @@ func (n *nadeo) AsyncDelete(url string) chan AsyncResponse {
 	return ret
 }
 
+func (n *nadeo) AsyncGetUncached(url string) chan AsyncResponse {
+	ret := make(chan AsyncResponse)
+	go func() {
+		res, err := n.GetUncached(url)
+		ret <- AsyncResponse{res, err}
+	}()
+	return ret
+}
+
+func (n *nadeo) AsyncOptionsUncached(url string) chan AsyncResponse {
+	ret := make(chan AsyncResponse)
+	go func() {
+		res, err := n.OptionsUncached(url)
+		ret <- AsyncResponse{res, err}
+	}()
+	return ret
+}
+
+func (n *nadeo) AsyncHeadUncached(url string) chan AsyncResponse {
+	ret := make(chan AsyncResponse)
+	go func() {
+		res, err := n.HeadUncached(url)
+		ret <- AsyncResponse{res, err}
+	}()
+	return ret
+}
+
 func (n *nadeo) CheckRefresh() error {
 	n.tokenRefreshMutex.Lock()
 	defer n.tokenRefreshMutex.Unlock()
@@ -341,7 +388,7 @@ func (n *nadeo) SetTimeout(timeout time.Duration) {
 	n.client.Timeout = timeout
 }
 
-func (n *nadeo) request(method string, url string, useCache bool, data []byte) ([]byte, error) {
+func (n *nadeo) request(method string, url string, cacheTime time.Duration, data []byte) ([]byte, error) {
 	var lock *sync.Mutex
 	defer func() {
 		if lock != nil {
@@ -349,7 +396,7 @@ func (n *nadeo) request(method string, url string, useCache bool, data []byte) (
 		}
 	}()
 
-	if useCache {
+	if cacheTime > 0 {
 		if n.useIdempotency {
 			lockAny, _ := n.idempotency.LoadOrStore(url, &sync.Mutex{})
 			lock = lockAny.(*sync.Mutex)
@@ -403,8 +450,8 @@ func (n *nadeo) request(method string, url string, useCache bool, data []byte) (
 		return nil, fmt.Errorf("error %d from server: %s", resp.StatusCode, getError(resBytes))
 	}
 
-	if useCache {
-		n.requestCache.Set(url, resBytes, cache.DefaultExpiration)
+	if cacheTime > 0 {
+		n.requestCache.Set(url, resBytes, cacheTime)
 	}
 
 	return resBytes, nil
