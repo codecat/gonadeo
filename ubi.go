@@ -48,12 +48,12 @@ func (u *ubi) Authenticate(email, password string) error {
 		return fmt.Errorf("unable to perform ubi request: %s", err.Error())
 	}
 
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("error %d from ubi server", resp.StatusCode)
+	}
+
 	resBytes := make([]byte, resp.ContentLength)
 	io.ReadFull(resp.Body, resBytes)
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("error from ubi server: %s", string(resBytes))
-	}
 
 	res := ubiAuthResponse{}
 	json.Unmarshal(resBytes, &res)
