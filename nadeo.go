@@ -447,7 +447,7 @@ func (n *nadeo) request(method string, url string, cacheTime time.Duration, data
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("error %d from server: %s", resp.StatusCode, getError(resBytes))
+		return resBytes, fmt.Errorf("error %d from server: %s", resp.StatusCode, getError(resBytes))
 	}
 
 	if cacheTime > 0 {
