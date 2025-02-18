@@ -110,8 +110,7 @@ func (n *nadeo) AuthenticateUbiTicket(ticket string) error {
 		return fmt.Errorf("unable to perform request: %s", err.Error())
 	}
 
-	resBytes := make([]byte, resp.ContentLength)
-	io.ReadFull(resp.Body, resBytes)
+	resBytes, err := io.ReadAll(resp.Body)
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("error from server: %s", getError(resBytes))
@@ -149,8 +148,7 @@ func (n *nadeo) AuthenticateBasic(username, password string) error {
 		return fmt.Errorf("unable to perform request: %s", err.Error())
 	}
 
-	resBytes := make([]byte, resp.ContentLength)
-	io.ReadFull(resp.Body, resBytes)
+	resBytes, err := io.ReadAll(resp.Body)
 
 	if resp.StatusCode != 200 {
 		// 401: "Username could not be found."  -> Invalid username
@@ -197,8 +195,7 @@ func (n *nadeo) AuthenticateBasicEmail(email, password, region string) error {
 		return fmt.Errorf("unable to perform request: %s", err.Error())
 	}
 
-	resBytes := make([]byte, resp.ContentLength)
-	io.ReadFull(resp.Body, resBytes)
+	resBytes, err := io.ReadAll(resp.Body)
 
 	if resp.StatusCode != 200 {
 		// 401: "Username could not be found."  -> Invalid username
@@ -473,8 +470,7 @@ func (n *nadeo) refreshNow() error {
 		return fmt.Errorf("unable to perform request: %s", err.Error())
 	}
 
-	resBytes := make([]byte, resp.ContentLength)
-	io.ReadFull(resp.Body, resBytes)
+	resBytes, err := io.ReadAll(resp.Body)
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("error from server: %s", getError(resBytes))
